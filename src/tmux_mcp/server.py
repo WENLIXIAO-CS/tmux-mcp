@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 from mcp.server.fastmcp import FastMCP
 
@@ -281,7 +282,20 @@ async def tmux_kill(target: str, type: str = "pane") -> str:
 
 
 def main():
-    mcp.run(transport="stdio")
+    parser = argparse.ArgumentParser(description="MCP server for controlling tmux sessions")
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "streamable-http", "sse"],
+        default="stdio",
+        help="Transport protocol (default: stdio)",
+    )
+    parser.add_argument("--host", default="127.0.0.1", help="Host to bind to (default: 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=8888, help="Port to listen on (default: 8888)")
+    args = parser.parse_args()
+
+    mcp.settings.host = args.host
+    mcp.settings.port = args.port
+    mcp.run(transport=args.transport)
 
 
 if __name__ == "__main__":

@@ -9,16 +9,28 @@ An [MCP](https://modelcontextprotocol.io/) server for controlling tmux sessions.
 
 ## Installation
 
-### With Claude Code
+### With Claude Code (stdio)
 
 ```bash
+# From PyPI
 claude mcp add tmux-mcp -- uvx tmux-mcp
+
+# From GitHub (no PyPI needed)
+claude mcp add tmux-mcp -- uvx --from git+https://github.com/WENLIXIAO-CS/tmux-mcp tmux-mcp
 ```
 
-Or, for a local development install:
+### With Claude Code (HTTP)
+
+Start the server:
 
 ```bash
-claude mcp add tmux-mcp -- uv run --directory /path/to/tmux-mcp tmux-mcp
+tmux-mcp --transport streamable-http --port 8888
+```
+
+Then add it as an HTTP MCP server:
+
+```bash
+claude mcp add --transport http tmux-mcp http://localhost:8888/mcp
 ```
 
 ### With pip
@@ -30,10 +42,12 @@ pip install tmux-mcp
 Then run the server:
 
 ```bash
+# stdio (default)
 tmux-mcp
-```
 
-The server communicates over stdio using the MCP protocol.
+# HTTP
+tmux-mcp --transport streamable-http --port 8888
+```
 
 ## Available Tools
 
@@ -112,14 +126,17 @@ Tool call: tmux_send_keys(target="%2", keys="tail -f app.log Enter")
 Add the tmux-mcp server to Claude Code:
 
 ```bash
-# Using the published package
+# stdio (managed by Claude Code)
 claude mcp add tmux-mcp -- uvx tmux-mcp
 
-# Or from a local checkout
+# HTTP (run server separately, then add)
+claude mcp add --transport http tmux-mcp http://localhost:8888/mcp
+
+# Local development
 claude mcp add tmux-mcp -- uv run --directory /path/to/tmux-mcp tmux-mcp
 ```
 
-Once added, Claude Code can use all tmux tools directly in conversation. The server runs over stdio and is managed automatically by Claude Code.
+Once added, Claude Code can use all tmux tools directly in conversation.
 
 ## Development
 
