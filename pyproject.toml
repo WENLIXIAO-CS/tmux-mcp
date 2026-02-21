@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tmux-mcp"
+version = "0.1.0"
+description = "MCP server for controlling tmux sessions"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Wenli Xiao"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "mcp[cli]>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/wenlixiao/tmux-mcp"
+Repository = "https://github.com/wenlixiao/tmux-mcp"
+
+[project.scripts]
+tmux-mcp = "tmux_mcp.server:main"
