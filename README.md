@@ -1,5 +1,8 @@
 # tmux-mcp
 
+[![PyPI](https://img.shields.io/pypi/v/tmux-mcp)](https://pypi.org/project/tmux-mcp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 An [MCP](https://modelcontextprotocol.io/) server for controlling tmux sessions. Allows AI assistants to create, manage, and interact with tmux sessions, windows, and panes programmatically.
 
 ## Prerequisites
@@ -9,44 +12,32 @@ An [MCP](https://modelcontextprotocol.io/) server for controlling tmux sessions.
 
 ## Installation
 
-### With Claude Code (stdio)
+### Claude Code (stdio)
 
 ```bash
-# From PyPI
 claude mcp add tmux-mcp -- uvx tmux-mcp
-
-# From GitHub (no PyPI needed)
-claude mcp add tmux-mcp -- uvx --from git+https://github.com/WENLIXIAO-CS/tmux-mcp tmux-mcp
 ```
 
-### With Claude Code (HTTP)
-
-Start the server:
+### Claude Code (HTTP)
 
 ```bash
+# Start the server
 tmux-mcp --transport streamable-http --port 8888
-```
 
-Then add it as an HTTP MCP server:
-
-```bash
+# Add to Claude Code
 claude mcp add --transport http tmux-mcp http://localhost:8888/mcp
 ```
 
-### With pip
+### Claude Code (from GitHub)
+
+```bash
+claude mcp add tmux-mcp -- uvx --from git+https://github.com/WENLIXIAO-CS/tmux-mcp tmux-mcp
+```
+
+### pip
 
 ```bash
 pip install tmux-mcp
-```
-
-Then run the server:
-
-```bash
-# stdio (default)
-tmux-mcp
-
-# HTTP
-tmux-mcp --transport streamable-http --port 8888
 ```
 
 ## Available Tools
@@ -121,36 +112,12 @@ Tool call: tmux_send_keys(target="%2", keys="tail -f app.log Enter")
 -> Keys sent.
 ```
 
-## Usage with Claude Code
-
-Add the tmux-mcp server to Claude Code:
-
-```bash
-# stdio (managed by Claude Code)
-claude mcp add tmux-mcp -- uvx tmux-mcp
-
-# HTTP (run server separately, then add)
-claude mcp add --transport http tmux-mcp http://localhost:8888/mcp
-
-# Local development
-claude mcp add tmux-mcp -- uv run --directory /path/to/tmux-mcp tmux-mcp
-```
-
-Once added, Claude Code can use all tmux tools directly in conversation.
-
 ## Development
-
-Clone the repository and set up a development environment:
 
 ```bash
 git clone https://github.com/WENLIXIAO-CS/tmux-mcp.git
 cd tmux-mcp
 uv sync
-```
-
-Run the server locally:
-
-```bash
 uv run tmux-mcp
 ```
 
