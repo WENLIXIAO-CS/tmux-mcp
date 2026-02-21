@@ -126,7 +126,7 @@ Once added, Claude Code can use all tmux tools directly in conversation. The ser
 Clone the repository and set up a development environment:
 
 ```bash
-git clone https://github.com/wenlixiao/tmux-mcp.git
+git clone https://github.com/WENLIXIAO-CS/tmux-mcp.git
 cd tmux-mcp
 uv sync
 ```

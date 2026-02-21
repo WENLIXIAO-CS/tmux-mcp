@@ -20,8 +20,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/wenlixiao/tmux-mcp"
-Repository = "https://github.com/wenlixiao/tmux-mcp"
+Homepage = "https://github.com/WENLIXIAO-CS/tmux-mcp"
+Repository = "https://github.com/WENLIXIAO-CS/tmux-mcp"
 
 [project.scripts]
 tmux-mcp = "tmux_mcp.server:main"
