@@ -419,8 +419,8 @@ async def tmux_read_cc_pane(
             _log(f"Processing: {detail}")
             await asyncio.sleep(poll_interval)
         elif state == "permission":
-            _log(f"Permission requested: {detail} → sending '1'")
-            await run_tmux("send-keys", "-t", target, "1")
+            _log(f"Permission requested: {detail} → sending Enter")
+            await run_tmux("send-keys", "-t", target, "Enter")
             await asyncio.sleep(poll_interval)
         elif state == "idle":
             _log(f"Idle: {detail}")

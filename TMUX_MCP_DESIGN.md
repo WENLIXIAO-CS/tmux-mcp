@@ -425,7 +425,7 @@ When `target` is omitted, `tmux_list_panes` uses `-a` to list all panes across a
 
 | State | Detection | Action |
 |-------|-----------|--------|
-| **Permission** | Keyword line (`permission`, `plan`, `approval`, `allow`, `proceed`) followed by 2+ numbered options (`1. Yes`, `2. No`…) | Send key `1` to auto-approve, then re-poll |
+| **Permission** | Keyword line (`permission`, `plan`, `approval`, `allow`, `proceed`) followed by 2+ numbered options (`1. Yes`, `2. No`…) | Send Enter to auto-approve, then re-poll |
 | **Processing** | Token counter (`· ↓ 3.1k tokens`), time counter (`(3m 45s ·`), `Running…`, braille spinners (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`), activity verbs with ellipsis (`Shimmying…`), bare `ing…`/`ing...` | Sleep `poll_interval` and re-poll |
 | **Idle** | No processing or permission indicators detected (default) | Break loop and return captured content |
 
@@ -488,7 +488,7 @@ Priority order (first match wins):
 
 - **Idle is the default state.** Rather than trying to positively detect the `❯` prompt (which is always visible in Claude Code's TUI, even during processing), the absence of processing/permission indicators is the idle signal. This avoids false positives from the always-present prompt.
 - **Permission requires keyword + numbered options.** A keyword alone or numbered options alone are not sufficient — both must appear in sequence. This prevents false positives from conversation content that happens to contain numbered lists or permission-related words.
-- **Permission sends `1`, not `1 Enter`.** Claude Code's numbered option dialogs auto-select on keypress without requiring Enter.
+- **Permission sends Enter.** Claude Code's numbered option dialogs pre-select option 1 (`❯ 1. Yes`), so Enter confirms the default selection.
 - **`❯` cursor prefix handling.** Claude Code prefixes the currently selected option with `❯` (e.g. `❯ 1. Yes`). The numbered option regex allows an optional `❯`/`►`/`>` prefix so both `❯ 1. Yes` and `2. No` are matched.
 - **Detection is scoped to the bottom of the pane.** Only the last `last_n_lines` non-empty lines are analyzed, avoiding false matches from conversation history above.
 - **ANSI stripping.** `capture-pane -p` mostly strips escape codes, but a regex pass (`_strip_ansi`) catches any residual sequences.
