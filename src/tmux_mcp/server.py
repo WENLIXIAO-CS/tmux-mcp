@@ -333,8 +333,9 @@ def _detect_cc_state(lines: list[str]) -> tuple[str, str]:
         return "processing", m.group(0).strip()
 
     # Tool running status
-    if re.search(r"Running…|Running\.\.\.", bottom_text):
-        return "processing", "Running…"
+    m = re.search(r"Running…|Running\.\.\.|Creating…|Creating\.\.\.", bottom_text)
+    if m:
+        return "processing", m.group(0)
 
     # Time counter: "(3m 45s ·" or "(45s ·"
     m = re.search(r"\(\d+[ms]?\s+\d+s\s*·", bottom_text)
