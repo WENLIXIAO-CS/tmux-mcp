@@ -472,7 +472,7 @@ The return string contains two sections separated by `--- Monitor Log ---`:
 Priority order (first match wins):
 
 1. **Permission** — two-step detection:
-   1. Find a line containing keyword `permission|plan|approval|allow|proceed` (case-insensitive)
+   1. Find a line containing keyword `permission|plan|approval|allow|proceed|do you want` (case-insensitive)
    2. After that line, find ≥2 numbered options matching `\s*[❯►>]?\s*\d+[\.\)]\s+\S` (handles Claude Code's `❯` cursor prefix on the selected option)
    - Both conditions must be met. Log shows: `keyword line → option1 | option2`
 2. **Processing** — checked in order of specificity:

@@ -318,7 +318,7 @@ def _detect_cc_state(lines: list[str]) -> tuple[str, str]:
     # Must find a keyword line THEN numbered options (1. / 2.) after it.
     kw_idx = None
     for i, line in enumerate(lines):
-        if re.search(r"permission|plan|approval|allow|proceed", line, re.IGNORECASE):
+        if re.search(r"permission|plan|approval|allow|proceed|do you want", line, re.IGNORECASE):
             kw_idx = i
             break
     if kw_idx is not None:
