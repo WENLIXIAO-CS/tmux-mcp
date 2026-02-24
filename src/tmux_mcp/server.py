@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import logging
 import re
+import sys
 import time
 
 from mcp.server.fastmcp import FastMCP
@@ -441,19 +442,52 @@ async def tmux_read_cc_pane(
 
 def main():
     parser = argparse.ArgumentParser(description="MCP server for controlling tmux sessions")
-    parser.add_argument(
+    sub = parser.add_subparsers(dest="command")
+
+    # --- serve (default) ---
+    serve_p = sub.add_parser("serve", help="Start the MCP server (default)")
+    serve_p.add_argument(
         "--transport",
         choices=["stdio", "streamable-http", "sse"],
         default="stdio",
         help="Transport protocol (default: stdio)",
     )
-    parser.add_argument("--host", default="127.0.0.1", help="Host to bind to (default: 127.0.0.1)")
-    parser.add_argument("--port", type=int, default=8888, help="Port to listen on (default: 8888)")
+    serve_p.add_argument("--host", default="127.0.0.1", help="Host to bind to (default: 127.0.0.1)")
+    serve_p.add_argument("--port", type=int, default=8888, help="Port to listen on (default: 8888)")
+
+    # --- read-cc-pane ---
+    cc_p = sub.add_parser(
+        "read-cc-pane",
+        help="Monitor a Claude Code tmux pane (standalone, no MCP server)",
+    )
+    cc_p.add_argument("target", help="Tmux target pane (e.g. 'session', '%%3')")
+    cc_p.add_argument("--timeout", type=float, default=300.0, help="Max seconds to wait (default: 300)")
+    cc_p.add_argument("--poll-interval", type=float, default=0.5, help="Seconds between polls (default: 0.5)")
+    cc_p.add_argument("--lines", type=int, default=20, help="Trailing lines to analyze (default: 20)")
+
     args = parser.parse_args()
 
-    mcp.settings.host = args.host
-    mcp.settings.port = args.port
-    mcp.run(transport=args.transport)
+    # Default to serve when no subcommand given
+    if args.command is None or args.command == "serve":
+        serve_args = args if args.command == "serve" else parser.parse_args(["serve"])
+        mcp.settings.host = serve_args.host
+        mcp.settings.port = serve_args.port
+        mcp.run(transport=serve_args.transport)
+    elif args.command == "read-cc-pane":
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s [%(name)s] %(message)s",
+            stream=sys.stderr,
+        )
+        result = asyncio.run(
+            tmux_read_cc_pane(
+                target=args.target,
+                timeout=args.timeout,
+                poll_interval=args.poll_interval,
+                last_n_lines=args.lines,
+            )
+        )
+        print(result)
 
 
 if __name__ == "__main__":
