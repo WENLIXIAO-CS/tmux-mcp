@@ -84,8 +84,9 @@ Each part can be a name, index, or ID:
 |------|--------|-------------|
 | `tmux_send_keys` | existing (keep) | Send keys to a pane |
 | `tmux_read_pane` | existing (keep) | Capture pane content |
+| `tmux_read_cc_pane` | **new** | Monitor a Claude Code pane (auto-wait, auto-approve) |
 
-**Total: 14 tools** (10 existing + 4 new)
+**Total: 15 tools** (10 existing + 5 new)
 
 ---
 
@@ -413,3 +414,75 @@ A single `tmux_kill(target, type)` handles sessions, windows, and panes rather t
 ### 7. list_panes defaults to all
 
 When `target` is omitted, `tmux_list_panes` uses `-a` to list all panes across all sessions, consistent with how `tmux_list_windows` behaves.
+
+---
+
+## Claude Code Integration: `tmux_read_cc_pane`
+
+### Purpose
+
+`tmux_read_cc_pane` enables autonomous orchestration of Claude Code sessions running inside tmux panes. It polls a pane in a loop, classifying the visible output into three states and acting accordingly:
+
+| State | Detection | Action |
+|-------|-----------|--------|
+| **Processing** | Token counter (`· ↓ 3.1k tokens`), time counter (`(3m 45s ·`), `Running…`, braille spinners (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`), activity verbs with ellipsis (`Shimmying…`) | Sleep `poll_interval` and re-poll |
+| **Permission** | 2+ numbered options (`1. Yes`, `2. No`…) or keywords (`Do you want to`, `Allow`) | Send key `1` to auto-approve, then re-poll |
+| **Idle** | No processing or permission indicators detected (default) | Break loop and return captured content |
+
+### Tool signature
+
+```python
+@mcp.tool()
+async def tmux_read_cc_pane(
+    target: str,
+    timeout: float = 300.0,
+    poll_interval: float = 0.5,
+    last_n_lines: int = 20,
+) -> str:
+```
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `target` | (required) | Tmux target pane, e.g. `"cc-test"`, `"%3"` |
+| `timeout` | `300.0` | Max seconds to monitor before returning |
+| `poll_interval` | `0.5` | Seconds between capture-pane polls |
+| `last_n_lines` | `20` | Number of trailing non-empty lines to analyze per poll |
+
+### Return value
+
+The return string contains two sections separated by `--- Monitor Log ---`:
+
+1. **Pane content** — final `capture-pane` with 200 lines of scrollback
+2. **Monitor log** — timestamped entries for every state transition
+
+```
+(pane content ...)
+
+--- Monitor Log ---
+[   0.0s] Monitoring Claude Code pane 'cc-test'
+[   0.0s] Permission requested: Do you want to → sending '1'
+[   1.0s] Processing: Shimmying…
+[  16.2s] Permission requested: 2. Yes, allow all edits → sending '1'
+[  35.4s] Processing: · ↓ 1.6k tokens
+[ 115.3s] Idle: no activity indicators
+```
+
+### Detection internals (`_detect_cc_state`)
+
+Priority order (first match wins):
+
+1. **Permission** — `re.match(r"\s*\d+[\.\)]\s+\S")` on ≥2 lines, or keywords `Do you want to|Allow |approve|(y/n)|(Y/n)`
+2. **Processing** — checked in order of specificity:
+   - Token counter: `·\s*↓\s*[\d.,]+k?\s*tokens`
+   - Running tool: `Running…|Running\.\.\.`
+   - Time counter: `\(\d+[ms]?\s+\d+s\s*·`
+   - Braille spinners: `[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⠐✽]`
+   - Generic activity: `\b\w+ing[…\.]{1,3}` (last 5 lines only)
+3. **Idle** — default when neither processing nor permission is detected
+
+### Design rationale
+
+- **Idle is the default state.** Rather than trying to positively detect the `❯` prompt (which is always visible in Claude Code's TUI, even during processing), the absence of processing/permission indicators is the idle signal. This avoids false positives from the always-present prompt.
+- **Permission sends `1`, not `1 Enter`.** Claude Code's numbered option dialogs auto-select on keypress without requiring Enter.
+- **Detection is scoped to the bottom of the pane.** Only the last `last_n_lines` non-empty lines are analyzed, avoiding false matches from conversation history above.
+- **ANSI stripping.** `capture-pane -p` mostly strips escape codes, but a regex pass (`_strip_ansi`) catches any residual sequences.

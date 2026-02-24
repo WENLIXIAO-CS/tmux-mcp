@@ -1,8 +1,15 @@
 import argparse
 import asyncio
+import logging
+import re
+import time
+
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("tmux-mcp")
+logger = logging.getLogger("tmux-mcp")
+
+_ANSI_RE = re.compile(r"\x1b(?:\[[0-9;]*[a-zA-Z]|\].*?\x07|\(B)")
 
 
 async def run_tmux(*args: str) -> tuple[str, str, int]:
@@ -279,6 +286,157 @@ async def tmux_kill(target: str, type: str = "pane") -> str:
     if rc != 0:
         return f"Error: {err.strip()}"
     return f"{type.capitalize()} '{target}' killed."
+
+
+def _strip_ansi(text: str) -> str:
+    """Remove ANSI escape sequences from text."""
+    return _ANSI_RE.sub("", text)
+
+
+def _get_bottom_lines(pane_text: str, n: int = 20) -> list[str]:
+    """Return the last *n* non-empty lines from captured pane text."""
+    return [l for l in pane_text.split("\n") if l.strip()][-n:]
+
+
+def _detect_cc_state(lines: list[str]) -> tuple[str, str]:
+    """Detect the current state of a Claude Code session.
+
+    Examines the bottom portion of a captured tmux pane and returns
+    ``(state, detail)`` where *state* is one of:
+
+    * ``"permission"`` – CC is showing a numbered-option approval prompt
+    * ``"processing"`` – CC is actively working (spinner / status line)
+    * ``"idle"``       – CC is waiting for the next user prompt
+    """
+    if not lines:
+        return "unknown", "empty pane"
+
+    bottom_text = "\n".join(lines)
+
+    # --- 1. Permission prompt ---
+    # Claude Code shows numbered options like "1. Yes  2. Yes, don't ask again  3. No"
+    numbered = [l for l in lines if re.match(r"\s*\d+[\.\)]\s+\S", l)]
+    if len(numbered) >= 2:
+        return "permission", numbered[0].strip()
+
+    perm = re.search(
+        r"Do you want to|Allow |approve|\(y/n\)|\(Y/n\)",
+        bottom_text,
+        re.IGNORECASE,
+    )
+    if perm:
+        return "permission", perm.group(0)
+
+    # --- 2. Processing indicators ---
+    # Token counter in status line: "· ↓ 3.1k tokens"
+    m = re.search(r"·\s*↓\s*[\d.,]+k?\s*tokens", bottom_text)
+    if m:
+        return "processing", m.group(0).strip()
+
+    # Tool running status
+    if re.search(r"Running…|Running\.\.\.", bottom_text):
+        return "processing", "Running…"
+
+    # Time counter: "(3m 45s ·" or "(45s ·"
+    m = re.search(r"\(\d+[ms]?\s+\d+s\s*·", bottom_text)
+    if m:
+        return "processing", m.group(0).strip()
+
+    # Braille spinner characters (Claude Code progress spinners)
+    if re.search(r"[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⠐✽]", bottom_text):
+        return "processing", "spinner detected"
+
+    # Generic activity word with ellipsis (last 5 lines only to limit false positives)
+    for line in lines[-5:]:
+        m = re.search(r"\b\w+ing[…\.]{1,3}", line)
+        if m:
+            return "processing", m.group(0)
+
+    # --- 3. Default: idle ---
+    return "idle", "no activity indicators"
+
+
+@mcp.tool()
+async def tmux_read_cc_pane(
+    target: str,
+    timeout: float = 300.0,
+    poll_interval: float = 0.5,
+    last_n_lines: int = 20,
+) -> str:
+    """Monitor a tmux pane running Claude Code, auto-waiting and auto-approving.
+
+    Polls the pane in a loop:
+    - While Claude Code is processing (spinners, "Running…", activity text):
+      logs the status and sleeps.
+    - When Claude Code asks for permission (numbered options):
+      sends "1" to approve and continues monitoring.
+    - When Claude Code is idle (waiting for next prompt):
+      returns the captured pane content.
+
+    Args:
+        target: Tmux target pane (e.g. "session:window.pane", "%3").
+        timeout: Max seconds to wait before returning (default 300).
+        poll_interval: Seconds between polls (default 0.5).
+        last_n_lines: Number of trailing non-empty lines to analyze (default 20).
+    """
+    log_entries: list[str] = []
+    t0 = time.monotonic()
+
+    def _log(msg: str):
+        elapsed = time.monotonic() - t0
+        entry = f"[{elapsed:6.1f}s] {msg}"
+        log_entries.append(entry)
+        logger.info(msg)
+
+    _log(f"Monitoring Claude Code pane '{target}'")
+
+    while True:
+        elapsed = time.monotonic() - t0
+        if elapsed > timeout:
+            _log(f"Timeout after {timeout:.0f}s")
+            break
+
+        # Capture the visible pane
+        out, err, rc = await run_tmux("capture-pane", "-t", target, "-p")
+        if rc != 0:
+            _log(f"Error reading pane: {err.strip()}")
+            return f"Error: {err.strip()}\n\n--- Log ---\n" + "\n".join(log_entries)
+
+        clean = _strip_ansi(out)
+        bottom = _get_bottom_lines(clean, last_n_lines)
+
+        if not bottom:
+            _log("Empty pane, waiting…")
+            await asyncio.sleep(poll_interval)
+            continue
+
+        state, detail = _detect_cc_state(bottom)
+
+        if state == "processing":
+            _log(f"Processing: {detail}")
+            await asyncio.sleep(poll_interval)
+        elif state == "permission":
+            _log(f"Permission requested: {detail} → sending '1'")
+            await run_tmux("send-keys", "-t", target, "1")
+            await asyncio.sleep(poll_interval)
+        elif state == "idle":
+            _log(f"Idle: {detail}")
+            break
+        else:
+            _log(f"Unknown state ({detail}), waiting…")
+            await asyncio.sleep(poll_interval)
+
+    # Final capture with scrollback for context
+    out, err, rc = await run_tmux(
+        "capture-pane", "-t", target, "-p", "-S", "-200"
+    )
+    if rc != 0:
+        content = "(error capturing final pane content)"
+    else:
+        content = _strip_ansi(out).rstrip()
+
+    log_block = "\n".join(log_entries)
+    return f"{content}\n\n--- Monitor Log ---\n{log_block}"
 
 
 def main():

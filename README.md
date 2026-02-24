@@ -70,6 +70,7 @@ pip install tmux-mcp
 |------|-------------|
 | `tmux_send_keys` | Send keys or commands to a pane (supports special keys like Enter, C-c, Tab) |
 | `tmux_read_pane` | Capture visible content from a pane (supports scrollback history) |
+| `tmux_read_cc_pane` | Monitor a Claude Code pane — auto-waits during processing, auto-approves permissions, returns output when idle |
 
 ### Lifecycle
 | Tool | Description |
@@ -110,6 +111,23 @@ Tool call: tmux_split_window(target="dev:0")
 
 Tool call: tmux_send_keys(target="%2", keys="tail -f app.log Enter")
 -> Keys sent.
+```
+
+Monitor a Claude Code session (auto-wait + auto-approve):
+
+```
+> Run a task in the "cc" tmux session and wait for it to finish
+
+Tool call: tmux_read_cc_pane(target="cc")
+[  0.0s] Monitoring Claude Code pane 'cc'
+[  0.0s] Permission requested: Do you want to → sending '1'
+[  1.0s] Processing: Shimmying…
+[  8.1s] Processing: · ↓ 345 tokens
+[ 16.2s] Permission requested: 2. Yes, allow all edits → sending '1'
+[ 32.4s] Processing: · ↓ 1.6k tokens
+[115.3s] Idle: no activity indicators
+
+-> (captured pane content with scrollback)
 ```
 
 ## Development
