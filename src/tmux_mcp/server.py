@@ -316,17 +316,13 @@ def _detect_cc_state(lines: list[str]) -> tuple[str, str]:
 
     # --- 1. Permission prompt ---
     # Claude Code shows numbered options like "1. Yes  2. Yes, don't ask again  3. No"
-    numbered = [l for l in lines if re.match(r"\s*\d+[\.\)]\s+\S", l)]
+    numbered = [l.strip() for l in lines if re.match(r"\s*\d+[\.\)]\s+\S", l)]
     if len(numbered) >= 2:
-        return "permission", numbered[0].strip()
+        return "permission", " | ".join(numbered)
 
-    perm = re.search(
-        r"Do you want to|Allow |approve|\(y/n\)|\(Y/n\)",
-        bottom_text,
-        re.IGNORECASE,
-    )
-    if perm:
-        return "permission", perm.group(0)
+    for line in lines:
+        if re.search(r"Do you want to|Allow |approve|\(y/n\)|\(Y/n\)", line, re.IGNORECASE):
+            return "permission", line.strip()
 
     # --- 2. Processing indicators ---
     # Token counter in status line: "· ↓ 3.1k tokens"
