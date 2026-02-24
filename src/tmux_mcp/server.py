@@ -322,7 +322,7 @@ def _detect_cc_state(lines: list[str]) -> tuple[str, str]:
             kw_idx = i
             break
     if kw_idx is not None:
-        numbered = [l.strip() for l in lines[kw_idx + 1:] if re.match(r"\s*\d+[\.\)]\s+\S", l)]
+        numbered = [l.strip() for l in lines[kw_idx + 1:] if re.match(r"\s*[❯►>]?\s*\d+[\.\)]\s+\S", l)]
         if len(numbered) >= 2:
             return "permission", lines[kw_idx].strip() + " → " + " | ".join(numbered)
 
