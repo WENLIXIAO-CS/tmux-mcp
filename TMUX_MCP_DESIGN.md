@@ -425,8 +425,8 @@ When `target` is omitted, `tmux_list_panes` uses `-a` to list all panes across a
 
 | State | Detection | Action |
 |-------|-----------|--------|
-| **Processing** | Token counter (`· ↓ 3.1k tokens`), time counter (`(3m 45s ·`), `Running…`, braille spinners (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`), activity verbs with ellipsis (`Shimmying…`) | Sleep `poll_interval` and re-poll |
-| **Permission** | 2+ numbered options (`1. Yes`, `2. No`…) or keywords (`Do you want to`, `Allow`) | Send key `1` to auto-approve, then re-poll |
+| **Permission** | Keyword line (`permission`, `plan`, `approval`, `allow`, `proceed`) followed by 2+ numbered options (`1. Yes`, `2. No`…) | Send key `1` to auto-approve, then re-poll |
+| **Processing** | Token counter (`· ↓ 3.1k tokens`), time counter (`(3m 45s ·`), `Running…`, braille spinners (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`), activity verbs with ellipsis (`Shimmying…`), bare `ing…`/`ing...` | Sleep `poll_interval` and re-poll |
 | **Idle** | No processing or permission indicators detected (default) | Break loop and return captured content |
 
 ### Tool signature
@@ -460,29 +460,35 @@ The return string contains two sections separated by `--- Monitor Log ---`:
 
 --- Monitor Log ---
 [   0.0s] Monitoring Claude Code pane 'cc-test'
-[   0.0s] Permission requested: Do you want to → sending '1'
-[   1.0s] Processing: Shimmying…
-[  16.2s] Permission requested: 2. Yes, allow all edits → sending '1'
-[  35.4s] Processing: · ↓ 1.6k tokens
-[ 115.3s] Idle: no activity indicators
+[   0.0s] Permission requested: Permission rule Bash requires confirmation for this command. → ❯ 1. Yes | 2. No → sending '1'
+[   1.0s] Processing: Running…
+[   2.0s] Processing: Concocting…
+[  14.1s] Processing: · ↓ 1.6k tokens
+[  24.2s] Idle: no activity indicators
 ```
 
 ### Detection internals (`_detect_cc_state`)
 
 Priority order (first match wins):
 
-1. **Permission** — `re.match(r"\s*\d+[\.\)]\s+\S")` on ≥2 lines, or keywords `Do you want to|Allow |approve|(y/n)|(Y/n)`
+1. **Permission** — two-step detection:
+   1. Find a line containing keyword `permission|plan|approval|allow|proceed` (case-insensitive)
+   2. After that line, find ≥2 numbered options matching `\s*[❯►>]?\s*\d+[\.\)]\s+\S` (handles Claude Code's `❯` cursor prefix on the selected option)
+   - Both conditions must be met. Log shows: `keyword line → option1 | option2`
 2. **Processing** — checked in order of specificity:
    - Token counter: `·\s*↓\s*[\d.,]+k?\s*tokens`
    - Running tool: `Running…|Running\.\.\.`
    - Time counter: `\(\d+[ms]?\s+\d+s\s*·`
    - Braille spinners: `[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⠐✽]`
-   - Generic activity: `\b\w+ing[…\.]{1,3}` (last 5 lines only)
+   - Activity verb with ellipsis: `\b\w+ing[…\.]{1,3}` (last 10 lines)
+   - Bare `ing…` or `ing...` fallback (all bottom text)
 3. **Idle** — default when neither processing nor permission is detected
 
 ### Design rationale
 
 - **Idle is the default state.** Rather than trying to positively detect the `❯` prompt (which is always visible in Claude Code's TUI, even during processing), the absence of processing/permission indicators is the idle signal. This avoids false positives from the always-present prompt.
+- **Permission requires keyword + numbered options.** A keyword alone or numbered options alone are not sufficient — both must appear in sequence. This prevents false positives from conversation content that happens to contain numbered lists or permission-related words.
 - **Permission sends `1`, not `1 Enter`.** Claude Code's numbered option dialogs auto-select on keypress without requiring Enter.
+- **`❯` cursor prefix handling.** Claude Code prefixes the currently selected option with `❯` (e.g. `❯ 1. Yes`). The numbered option regex allows an optional `❯`/`►`/`>` prefix so both `❯ 1. Yes` and `2. No` are matched.
 - **Detection is scoped to the bottom of the pane.** Only the last `last_n_lines` non-empty lines are analyzed, avoiding false matches from conversation history above.
 - **ANSI stripping.** `capture-pane -p` mostly strips escape codes, but a regex pass (`_strip_ansi`) catches any residual sequences.
