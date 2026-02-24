@@ -347,11 +347,15 @@ def _detect_cc_state(lines: list[str]) -> tuple[str, str]:
     if re.search(r"[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⠐✽]", bottom_text):
         return "processing", "spinner detected"
 
-    # Generic activity word with ellipsis (last 5 lines only to limit false positives)
-    for line in lines[-5:]:
+    # Activity word with ellipsis
+    for line in lines[-10:]:
         m = re.search(r"\b\w+ing[…\.]{1,3}", line)
         if m:
             return "processing", m.group(0)
+
+    # Bare "ing…" or "ing..." anywhere in bottom text
+    if re.search(r"ing…|ing\.\.\.", bottom_text):
+        return "processing", "ing… detected"
 
     # --- 3. Default: idle ---
     return "idle", "no activity indicators"
