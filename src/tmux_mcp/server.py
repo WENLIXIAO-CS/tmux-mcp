@@ -333,7 +333,7 @@ def _detect_cc_state(lines: list[str]) -> tuple[str, str]:
         return "processing", m.group(0).strip()
 
     # Tool running status
-    m = re.search(r"Running…|Running\.\.\.|Creating…|Creating\.\.\.", bottom_text)
+    m = re.search(r"\b\w+ing…|\b\w+ing\.\.\.", bottom_text)
     if m:
         return "processing", m.group(0)
 
