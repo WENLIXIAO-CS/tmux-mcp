@@ -332,18 +332,18 @@ def _detect_cc_state(lines: list[str]) -> tuple[str, str]:
     if m:
         return "processing", m.group(0).strip()
 
-    # Tool running status
-    m = re.search(r"\b\w+ing…|\b\w+ing\.\.\.", bottom_text)
+    # Tool running status or activity verb (ing followed eventually by ellipsis)
+    m = re.search(r"\b\w+ing\b.*?[…]|\b\w+ing\.\.\.", bottom_text)
     if m:
-        return "processing", m.group(0)
+        return "processing", m.group(0).strip()[:80]
 
-    # Time counter: "(3m 45s ·" or "(45s ·"
-    m = re.search(r"\(\d+[ms]?\s+\d+s\s*·", bottom_text)
+    # Time counter: "(3m 45s ·" or "(5m 40s)" — with or without trailing ·
+    m = re.search(r"\(\d+[ms]?\s+\d+s", bottom_text)
     if m:
         return "processing", m.group(0).strip()
 
     # Braille spinner characters (Claude Code progress spinners)
-    if re.search(r"[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⠐✽]", bottom_text):
+    if re.search(r"[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏⠐✽✳✻]", bottom_text):
         return "processing", "spinner detected"
 
     # Activity word with ellipsis
