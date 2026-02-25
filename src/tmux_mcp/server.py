@@ -363,7 +363,7 @@ def _detect_cc_state(lines: list[str]) -> tuple[str, str]:
 @mcp.tool()
 async def tmux_read_cc_pane(
     target: str,
-    timeout: float = 300.0,
+    timeout: float = 1800.0,
     poll_interval: float = 0.5,
     last_n_lines: int = 20,
 ) -> str:
@@ -379,7 +379,7 @@ async def tmux_read_cc_pane(
 
     Args:
         target: Tmux target pane (e.g. "session:window.pane", "%3").
-        timeout: Max seconds to wait before returning (default 300).
+        timeout: Max seconds to wait before returning (default 1800).
         poll_interval: Seconds between polls (default 0.5).
         last_n_lines: Number of trailing non-empty lines to analyze (default 20).
     """
@@ -464,7 +464,7 @@ def main():
         help="Monitor a Claude Code tmux pane (standalone, no MCP server)",
     )
     cc_p.add_argument("target", help="Tmux target pane (e.g. 'session', '%%3')")
-    cc_p.add_argument("--timeout", type=float, default=300.0, help="Max seconds to wait (default: 300)")
+    cc_p.add_argument("--timeout", type=float, default=1800.0, help="Max seconds to wait (default: 1800)")
     cc_p.add_argument("--poll-interval", type=float, default=0.5, help="Seconds between polls (default: 0.5)")
     cc_p.add_argument("--lines", type=int, default=20, help="Trailing lines to analyze (default: 20)")
 
